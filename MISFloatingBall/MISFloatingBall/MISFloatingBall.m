@@ -9,12 +9,6 @@
 #import "MISFloatingBall.h"
 #include <objc/runtime.h>
 
-typedef NS_ENUM(NSUInteger, MISFloatingBallContentType) {
-    MISFloatingBallContentTypeImage = 0,    // 图片
-    MISFloatingBallContentTypeText,         // 文字
-    MISFloatingBallContentTypeCustomView    // 自定义视图(添加到上方的自定义视图默认 userInteractionEnabled = NO)
-};
-
 @interface MISRootViewController : UIViewController
 @property (nonatomic) BOOL shouldAutorotate;
 @property (nonatomic) UIInterfaceOrientationMask supportedInterfaceOrientations;
@@ -386,54 +380,39 @@ static const NSInteger minUpDownLimits = 60 * 1.5f;   // MISFloatingBallEdgePoli
 
 - (void)setTextContent:(NSString *)content
 {
-    [self setContent:content contentType:MISFloatingBallContentTypeText];
+    [self.ballCustomView removeFromSuperview];
+    self.ballLabel.hidden = NO;
+    self.ballCustomView.hidden = YES;
+    self.ballImageView.hidden = YES;
+    self.ballLabel.text = content;
 }
 
 - (void)setImageContent:(UIImage *)content
 {
-    [self setContent:content contentType:MISFloatingBallContentTypeImage];
+    [self.ballCustomView removeFromSuperview];
+    self.ballLabel.hidden = YES;
+    self.ballCustomView.hidden = YES;
+    self.ballImageView.hidden = NO;
+    self.ballImageView.image = content;
 }
 
 - (void)setCustomContent:(UIView *)content
 {
-    [self setContent:content contentType:MISFloatingBallContentTypeCustomView];
-}
-
-- (void)setContent:(id)content contentType:(MISFloatingBallContentType)contentType {
-    BOOL notUnknowType = (MISFloatingBallContentTypeCustomView == contentType) || (MISFloatingBallContentTypeImage == contentType) || (MISFloatingBallContentTypeText == contentType);
-    NSAssert(notUnknowType, @"can't set ball content with an unknow content type");
-    
     [self.ballCustomView removeFromSuperview];
-    if (MISFloatingBallContentTypeImage == contentType) {
-        NSAssert([content isKindOfClass:[UIImage class]], @"can't set ball content with a not image content for image type");
-        [self.ballLabel setHidden:YES];
-        [self.ballCustomView setHidden:YES];
-        [self.ballImageView setHidden:NO];
-        [self.ballImageView setImage:(UIImage *)content];
-    }
-    else if (MISFloatingBallContentTypeText == contentType) {
-        NSAssert([content isKindOfClass:[NSString class]], @"can't set ball content with a not nsstring content for text type");
-        [self.ballLabel setHidden:NO];
-        [self.ballCustomView setHidden:YES];
-        [self.ballImageView setHidden:YES];
-        [self.ballLabel setText:(NSString *)content];
-    }
-    else if (MISFloatingBallContentTypeCustomView == contentType) {
-        NSAssert([content isKindOfClass:[UIView class]], @"can't set ball content with a not uiview content for custom view type");
-        [self.ballLabel setHidden:YES];
-        [self.ballCustomView setHidden:NO];
-        [self.ballImageView setHidden:YES];
-        
-        self.ballCustomView = (UIView *)content;
-        
-        CGRect frame = self.ballCustomView.frame;
-        frame.origin.x = (self.bounds.size.width - self.ballCustomView.bounds.size.width) * 0.5;
-        frame.origin.y = (self.bounds.size.height - self.ballCustomView.bounds.size.height) * 0.5;
-        self.ballCustomView.frame = frame;
-        
-        self.ballCustomView.userInteractionEnabled = NO;
-        [self addSubview:self.ballCustomView];
-    }
+    
+    self.ballLabel.hidden = YES;
+    self.ballCustomView.hidden = NO;
+    self.ballImageView.hidden = YES;
+    
+    self.ballCustomView = content;
+    
+    CGRect frame = self.ballCustomView.frame;
+    frame.origin.x = (self.bounds.size.width - self.ballCustomView.bounds.size.width) * 0.5;
+    frame.origin.y = (self.bounds.size.height - self.ballCustomView.bounds.size.height) * 0.5;
+    self.ballCustomView.frame = frame;
+    
+    self.ballCustomView.userInteractionEnabled = NO;
+    [self addSubview:self.ballCustomView];
 }
 
 #pragma mark - GestureRecognizer

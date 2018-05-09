@@ -143,7 +143,7 @@
 				TargetAttributes = {
 					C4E87DCA1EAB24520098F645 = {
 						CreatedOnToolsVersion = 8.3;
-						DevelopmentTeam = SW9TH7TPPT;
+						DevelopmentTeam = FQU24TXA6W;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -313,8 +313,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				DEVELOPMENT_TEAM = SW9TH7TPPT;
+				DEVELOPMENT_TEAM = FQU24TXA6W;
 				INFOPLIST_FILE = MISFloatingBall/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.chengpeng;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -325,8 +326,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				DEVELOPMENT_TEAM = SW9TH7TPPT;
+				DEVELOPMENT_TEAM = FQU24TXA6W;
 				INFOPLIST_FILE = MISFloatingBall/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.chengpeng;
 				PRODUCT_NAME = "$(TARGET_NAME)";

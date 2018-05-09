@@ -41,11 +41,11 @@
         [weakSelf presentViewController:vc animated:YES completion:NULL];
     };
 
-    [floatingBall visible];
+    [floatingBall show];
     
     floatingBall.backgroundColor = [UIColor orangeColor];
     floatingBall.autoCloseEdge = YES;
-    [floatingBall setContent:@"点我弹控制器" contentType:MISFloatingBallContentTypeText];
+    [floatingBall setTextContent:@"点我弹控制器"];
     
     self.floatingBall = floatingBall;
     
@@ -61,7 +61,7 @@
 - (void)viewDidDisappear:(BOOL)animated {
     [super viewDidDisappear:animated];
     
-    [self.floatingBall disVisible];
+    [self.floatingBall hide];
 }
 
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {

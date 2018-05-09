@@ -39,7 +39,7 @@
     self.floatingBall = [[MISFloatingBall alloc] initWithFrame:CGRectMake(0, 0, 100, 60)];
     self.floatingBall.backgroundColor = [UIColor lightGrayColor];
     self.floatingBall.clickHandler = ^(MISFloatingBall * _Nonnull floatingBall) {
-        [floatingBall disVisible];
+        [floatingBall hide];
     };
     
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(test:) name:UIWindowDidBecomeVisibleNotification object:nil];
@@ -55,7 +55,7 @@
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
-    [self.floatingBall visible];
+    [self.floatingBall show];
 }
 
 
@@ -63,7 +63,7 @@
     [super viewWillDisappear:animated];
     
     [self.displayLink invalidate];
-    [self.floatingBall disVisible];
+    [self.floatingBall hide];
 }
 
 - (NSMutableArray *)imageDatas {
@@ -95,8 +95,8 @@
     
     CGFloat progress = fps / 60.0;
     
-    [self.floatingBall setContent:[NSString stringWithFormat:@"%d FPS", (int)round(fps)] contentType:MISFloatingBallContentTypeText];
-    self.floatingBall.textTypeTextColor = [UIColor colorWithHue:0.27 * (progress - 0.2) saturation:1 brightness:0.9 alpha:1];
+    [self.floatingBall setTextContent:@"%d FPS"];
+    self.floatingBall.ballLabel.textColor = [UIColor colorWithHue:0.27 * (progress - 0.2) saturation:1 brightness:0.9 alpha:1];
 }
 
 #pragma mark - Table view data source

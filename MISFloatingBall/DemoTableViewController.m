@@ -69,11 +69,11 @@
 
 - (void)imageBall {
     self.globallyBall = [[MISFloatingBall alloc] initWithFrame:CGRectMake(100, 100, 60, 60)];
-    [self.globallyBall visible];
+    [self.globallyBall show];
     
     __weak typeof(self) weakSelf = self;
     self.globallyBall.clickHandler = ^(MISFloatingBall * _Nonnull floatingBall) {
-        [floatingBall disVisible];
+        [floatingBall hide];
         
         // 实际开发中需要注意如果是 base vc 的话，要注意 self 和 ball 强引用，解决办法使用 weak ball，或者手动设置
         // self.globallyBall = nil
@@ -81,7 +81,7 @@
     };
     
     self.globallyBall.backgroundColor = [UIColor redColor];
-    [self.globallyBall setContent:[UIImage imageNamed:@"apple"] contentType:MISFloatingBallContentTypeImage];
+    [self.globallyBall setImageContent:[UIImage imageNamed:@"apple"]];
 }
 
 - (void)titleBall {
@@ -101,11 +101,11 @@
     button.titleLabel.font = [UIFont systemFontOfSize:16.0f];
     button.backgroundColor = [UIColor redColor];
     
-    [globallyBall setContent:button contentType:MISFloatingBallContentTypeCustomView];
-    [globallyBall visible];
+    [globallyBall setCustomContent:button];
+    [globallyBall show];
     
     globallyBall.clickHandler = ^(MISFloatingBall * _Nonnull floatingBall) {
-        [floatingBall disVisible];
+        [floatingBall hide];
     };
 }
 
@@ -113,27 +113,25 @@
     MISFloatingBall *floating = [[MISFloatingBall alloc] initWithFrame:CGRectMake(100, 100, 60, 60)];
     // 自动靠边
     floating.autoCloseEdge = YES;
-    [floating setContent:[UIImage imageNamed:@"apple"] contentType:MISFloatingBallContentTypeImage];
-    [floating visible];
+    [floating setImageContent:[UIImage imageNamed:@"apple"]];
+    [floating show];
     
     floating.clickHandler = ^(MISFloatingBall * _Nonnull floatingBall) {
-        [floatingBall disVisible];
+        [floatingBall hide];
     };
 }
 
 - (void)autoEdgeRetract {
     MISFloatingBall *floating = [[MISFloatingBall alloc] initWithFrame:CGRectMake(100, 100, 60, 60)];
     floating.autoCloseEdge = YES;
-    [floating setContent:[UIImage imageNamed:@"apple"] contentType:MISFloatingBallContentTypeImage];
-    [floating visible];
+    [floating setImageContent:[UIImage imageNamed:@"apple"]];
+    [floating show];
     
     // 3s后缩进
-    [floating autoEdgeRetractDuration:3.0f edgeRetractConfigHander:^MISEdgeRetractConfig{
-        return MISEdgeOffsetConfigMake(CGPointMake(50, 50), 0.7f);
-    }];
+    [floating autoEdgeRetractDuration:3.0f edgeRetractOffset:CGPointMake(50, 50) edgeRetractAlpha:0.7f];
     
     floating.clickHandler = ^(MISFloatingBall * _Nonnull floatingBall) {
-        [floatingBall disVisible];
+        [floatingBall hide];
     };
 }
 
@@ -144,12 +142,14 @@
     globallyBall.edgePolicy = MISFloatingBallEdgePolicyLeftRight;
     
     globallyBall.backgroundColor = [UIColor redColor];
-    [globallyBall setContent:[UIImage imageNamed:@"apple"] contentType:MISFloatingBallContentTypeImage];
-    [globallyBall visible];
+    [globallyBall setImageContent:[UIImage imageNamed:@"apple"]];
+    [globallyBall show];
     
     globallyBall.clickHandler = ^(MISFloatingBall * _Nonnull floatingBall) {
-        [floatingBall disVisible];
+        [floatingBall hide];
     };
+    
+    [[MISFloatingBall alloc]init];
 }
 
 - (void)specifiedView {

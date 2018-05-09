@@ -9,6 +9,29 @@
 #import "MISFloatingBall.h"
 #include <objc/runtime.h>
 
+typedef NS_ENUM(NSUInteger, MISFloatingBallContentType) {
+    MISFloatingBallContentTypeImage = 0,    // 图片
+    MISFloatingBallContentTypeText,         // 文字
+    MISFloatingBallContentTypeCustomView    // 自定义视图(添加到上方的自定义视图默认 userInteractionEnabled = NO)
+};
+
+@interface MISRootViewController : UIViewController
+@property (nonatomic) BOOL shouldAutorotate;
+@property (nonatomic) UIInterfaceOrientationMask supportedInterfaceOrientations;
+@end
+
+@implementation MISRootViewController
+- (BOOL)shouldAutorotate
+{
+    return _shouldAutorotate;
+}
+
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations
+{
+    return _supportedInterfaceOrientations;
+}
+@end
+
 #pragma mark - MISFloatingBallWindow
 
 @interface MISFloatingBallWindow : UIWindow
@@ -96,20 +119,12 @@
 #pragma mark - MISFloatingBall
 
 @interface MISFloatingBall()
-@property (nonatomic, assign) CGPoint centerOffset;
-@property (nonatomic,   copy) MISEdgeRetractConfig(^edgeRetractConfigHander)();
-@property (nonatomic, assign) NSTimeInterval autoEdgeOffsetDuration;
-
-@property (nonatomic, assign, getter=isAutoEdgeRetract) BOOL autoEdgeRetract;
-
 @property (nonatomic, strong) UIView *parentView;
-
-// content
+@property (nonatomic, assign) CGPoint centerOffset;
+@property (nonatomic, strong) MISRootViewController *rootViewController;
 @property (nonatomic, strong) UIImageView *ballImageView;
 @property (nonatomic, strong) UILabel *ballLabel;
 @property (nonatomic, strong) UIView *ballCustomView;
-
-@property (nonatomic, assign) UIEdgeInsets effectiveEdgeInsets;
 @property (nonatomic, strong) NSTimer *autoEdgeRetractTimer;
 @end
 
@@ -140,7 +155,15 @@ static const NSInteger minUpDownLimits = 60 * 1.5f;   // MISFloatingBallEdgePoli
     return [self initWithFrame:frame inSpecifiedView:specifiedView effectiveEdgeInsets:UIEdgeInsetsZero];
 }
 
-- (instancetype)initWithFrame:(CGRect)frame inSpecifiedView:(UIView *)specifiedView effectiveEdgeInsets:(UIEdgeInsets)effectiveEdgeInsets {
+- (instancetype)initWithFrame:(CGRect)frame inSpecifiedView:(nullable UIView *)specifiedView effectiveEdgeInsets:(UIEdgeInsets)effectiveEdgeInsets {
+    return [self initWithFrame:frame inSpecifiedView:specifiedView effectiveEdgeInsets:effectiveEdgeInsets clickHandler:nil];
+}
+
+- (instancetype)initWithFrame:(CGRect)frame
+              inSpecifiedView:(nullable UIView *)specifiedView
+          effectiveEdgeInsets:(UIEdgeInsets)effectiveEdgeInsets
+                 clickHandler:(MISFloatingBallClickHandler)clickHandler
+{
     self = [super initWithFrame:frame];
     if (self) {
         self.backgroundColor = [UIColor clearColor];
@@ -149,6 +172,11 @@ static const NSInteger minUpDownLimits = 60 * 1.5f;   // MISFloatingBallEdgePoli
         _autoEdgeRetract = NO;
         _edgePolicy = MISFloatingBallEdgePolicyAllEdge;
         _effectiveEdgeInsets = effectiveEdgeInsets;
+        _edgeRetractOffset = CGPointMake(self.bounds.size.width * 0.3, self.bounds.size.height * 0.3);
+        _edgeRetractAlpha = 0.8f;
+        _shouldAutorotate = YES;
+        _supportedInterfaceOrientations = UIInterfaceOrientationMaskAll;
+        _clickHandler = clickHandler;
         
         UIPanGestureRecognizer *panGesture = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(panGestureRecognizer:)];
         UITapGestureRecognizer *tapGesture = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tapGestureRecognizer:)];
@@ -235,7 +263,7 @@ static const NSInteger minUpDownLimits = 60 * 1.5f;   // MISFloatingBallEdgePoli
     } else {
         [self updateFrameWithOrientation:orientation];
     }
-    if (self.isAutoEdgeRetract) {
+    if (self.autoEdgeRetract) {
         [self beginAutoEdgeRetractTimer];
     }
 }
@@ -249,6 +277,7 @@ static const NSInteger minUpDownLimits = 60 * 1.5f;   // MISFloatingBallEdgePoli
         }];
     }
 }
+
 - (void)configSpecifiedView:(UIView *)specifiedView {
     if (specifiedView) {
         _parentView = specifiedView;
@@ -256,7 +285,10 @@ static const NSInteger minUpDownLimits = 60 * 1.5f;   // MISFloatingBallEdgePoli
     else {
         UIWindow *window = [[MISFloatingBallWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
         window.windowLevel = CGFLOAT_MAX; //UIWindowLevelStatusBar - 1;
-        window.rootViewController = [UIViewController new];
+        _rootViewController = [[MISRootViewController alloc]init];
+        _rootViewController.shouldAutorotate = _shouldAutorotate;
+        _rootViewController.supportedInterfaceOrientations = _supportedInterfaceOrientations;
+        window.rootViewController = _rootViewController;
         window.rootViewController.view.backgroundColor = [UIColor clearColor];
         window.rootViewController.view.userInteractionEnabled = NO;
         [window makeKeyAndVisible];
@@ -281,18 +313,16 @@ static const NSInteger minUpDownLimits = 60 * 1.5f;   // MISFloatingBallEdgePoli
         self.center = [self calculatePoisitionWithEndOffset:CGPointZero];//center;
     } completion:^(BOOL finished) {
         // 靠边之后自动缩进边缘处
-        if (self.isAutoEdgeRetract) {
+        if (self.autoEdgeRetract) {
             [self beginAutoEdgeRetractTimer];
         }
     }];
 }
 
 - (void)autoEdgeOffset {
-    MISEdgeRetractConfig config = self.edgeRetractConfigHander ? self.edgeRetractConfigHander() : MISEdgeOffsetConfigMake(CGPointMake(self.bounds.size.width * 0.3, self.bounds.size.height * 0.3), 0.8);
-    
     [UIView animateWithDuration:0.5f animations:^{
-        self.center = [self calculatePoisitionWithEndOffset:config.edgeRetractOffset];
-        self.alpha = config.edgeRetractAlpha;
+        self.center = [self calculatePoisitionWithEndOffset:self.edgeRetractOffset];
+        self.alpha = self.edgeRetractAlpha;
     }];
 }
 
@@ -344,13 +374,29 @@ static const NSInteger minUpDownLimits = 60 * 1.5f;   // MISFloatingBallEdgePoli
     [self hide];
 }
 
-- (void)autoEdgeRetractDuration:(NSTimeInterval)duration edgeRetractConfigHander:(MISEdgeRetractConfig (^)())edgeRetractConfigHander {
+- (void)autoEdgeRetractDuration:(NSTimeInterval)duration edgeRetractOffset:(CGPoint)offset edgeRetractAlpha:(float)alpha {
     if (self.isAutoCloseEdge) {
         // 只有自动靠近边缘的时候才生效
-        self.edgeRetractConfigHander = edgeRetractConfigHander;
+        self.edgeRetractAlpha = alpha;
+        self.edgeRetractOffset = offset;
         self.autoEdgeOffsetDuration = duration;
         self.autoEdgeRetract = YES;
     }
+}
+
+- (void)setTextContent:(NSString *)content
+{
+    [self setContent:content contentType:MISFloatingBallContentTypeText];
+}
+
+- (void)setImageContent:(UIImage *)content
+{
+    [self setContent:content contentType:MISFloatingBallContentTypeImage];
+}
+
+- (void)setCustomContent:(UIView *)content
+{
+    [self setContent:content contentType:MISFloatingBallContentTypeCustomView];
 }
 
 - (void)setContent:(id)content contentType:(MISFloatingBallContentType)contentType {
@@ -467,12 +513,6 @@ static const NSInteger minUpDownLimits = 60 * 1.5f;   // MISFloatingBallEdgePoli
     }
 }
 
-- (void)setTextTypeTextColor:(UIColor *)textTypeTextColor {
-    _textTypeTextColor = textTypeTextColor;
-    
-    [self.ballLabel setTextColor:textTypeTextColor];
-}
-
 - (UIImageView *)ballImageView {
     if (!_ballImageView) {
         _ballImageView = [[UIImageView alloc] initWithFrame:self.bounds];
@@ -491,5 +531,21 @@ static const NSInteger minUpDownLimits = 60 * 1.5f;   // MISFloatingBallEdgePoli
         [self addSubview:_ballLabel];
     }
     return _ballLabel;
+}
+
+- (void)setShouldAutorotate:(BOOL)shouldAutorotate
+{
+    _shouldAutorotate = shouldAutorotate;
+    if (_rootViewController) {
+       _rootViewController.shouldAutorotate = _shouldAutorotate;
+    }
+}
+
+- (void)setSupportedInterfaceOrientations:(UIInterfaceOrientationMask)supportedInterfaceOrientations
+{
+    _supportedInterfaceOrientations = supportedInterfaceOrientations;
+    if (_rootViewController) {
+        _rootViewController.supportedInterfaceOrientations = _supportedInterfaceOrientations;
+    }
 }
 @end

@@ -110,6 +110,7 @@
 @property (nonatomic, strong) UIView *ballCustomView;
 
 @property (nonatomic, assign) UIEdgeInsets effectiveEdgeInsets;
+@property (nonatomic, strong) NSTimer *autoEdgeRetractTimer;
 @end
 
 static const NSInteger minUpDownLimits = 60 * 1.5f;   // MISFloatingBallEdgePolicyAllEdge 下，悬浮球到达一个界限开始自动靠近上下边缘
@@ -126,6 +127,7 @@ static const NSInteger minUpDownLimits = 60 * 1.5f;   // MISFloatingBallEdgePoli
 
 - (void)dealloc {
     MISLog(@"MISFloatingBall dealloc");
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationWillChangeStatusBarOrientationNotification object:nil];
     [MISFloatingBallManager shareManager].canRuntime = NO;
     [MISFloatingBallManager shareManager].superView = nil;
 }
@@ -154,10 +156,99 @@ static const NSInteger minUpDownLimits = 60 * 1.5f;   // MISFloatingBallEdgePoli
         [self addGestureRecognizer:tapGesture];
         [self addGestureRecognizer:panGesture];
         [self configSpecifiedView:specifiedView];
+        
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(willChangeOrientationHandler:) name:UIApplicationWillChangeStatusBarOrientationNotification object:nil];
+        
     }
     return self;
 }
 
+- (void)updateTransformWithOrientation:(UIInterfaceOrientation)orientation
+{
+    CGFloat width = CGRectGetWidth(self.parentView.bounds);
+    CGFloat height = CGRectGetHeight(self.parentView.bounds);
+    if (width > height) {
+        CGFloat temp = width;
+        width = height;
+        height = temp;
+    }
+    CGAffineTransform transform;
+    switch (orientation) {
+        case UIInterfaceOrientationLandscapeLeft:
+            transform = CGAffineTransformMakeRotation(-M_PI_2);
+            break;
+        case UIInterfaceOrientationLandscapeRight:
+            transform = CGAffineTransformMakeRotation(M_PI_2);
+            break;
+        case UIInterfaceOrientationPortraitUpsideDown:
+            transform = CGAffineTransformMakeRotation(-M_PI);
+            break;
+        default:
+            transform = CGAffineTransformIdentity;
+            break;
+    }
+    self.parentView.transform = transform;
+    self.parentView.frame = CGRectMake(CGRectGetMinX(self.parentView.frame), CGRectGetMinY(self.parentView.frame), width, height);
+}
+
+- (void)updateFrameWithOrientation:(UIInterfaceOrientation)orientation
+{
+    CGFloat width = CGRectGetWidth(self.parentView.bounds);
+    CGFloat height = CGRectGetHeight(self.parentView.bounds);
+    if (width > height) {
+        CGFloat temp = width;
+        width = height;
+        height = temp;
+    }
+
+    switch (orientation) {
+        case UIInterfaceOrientationLandscapeLeft:
+        case UIInterfaceOrientationLandscapeRight:
+        {
+            CGFloat rightMaxX = height - self.bounds.size.width + self.effectiveEdgeInsets.right;
+            CGRect frame = self.frame;
+            frame.origin.x = rightMaxX;
+            frame.origin.y = (width - self.bounds.size.height) / 2;
+            self.frame = frame;
+        }
+            break;
+        default:
+        {
+            CGFloat rightMaxX = width - self.bounds.size.width + self.effectiveEdgeInsets.right;
+            CGRect frame = self.frame;
+            frame.origin.x = rightMaxX;
+            frame.origin.y = (height - self.bounds.size.height) / 2;
+            self.frame = frame;
+        }
+            break;
+    }
+}
+
+- (void)updateWithOrientation:(UIInterfaceOrientation)orientation
+{
+    [self setAlpha:1.0f];
+    // cancel
+    [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(autoEdgeOffset) object:nil];
+    
+    if ([[UIDevice currentDevice].systemVersion floatValue] < 8.0) {
+        [self updateTransformWithOrientation:orientation];
+    } else {
+        [self updateFrameWithOrientation:orientation];
+    }
+    if (self.isAutoEdgeRetract) {
+        [self beginAutoEdgeRetractTimer];
+    }
+}
+
+- (void)willChangeOrientationHandler:(NSNotification *)notification
+{
+    if (notification.name == UIApplicationWillChangeStatusBarOrientationNotification) {
+        [UIView animateWithDuration:[UIApplication sharedApplication].statusBarOrientationAnimationDuration animations:^{
+            UIInterfaceOrientation orientation = (UIInterfaceOrientation)[notification.userInfo[UIApplicationStatusBarOrientationUserInfoKey] integerValue];
+            [self updateWithOrientation:orientation];
+        }];
+    }
+}
 - (void)configSpecifiedView:(UIView *)specifiedView {
     if (specifiedView) {
         _parentView = specifiedView;
@@ -191,7 +282,7 @@ static const NSInteger minUpDownLimits = 60 * 1.5f;   // MISFloatingBallEdgePoli
     } completion:^(BOOL finished) {
         // 靠边之后自动缩进边缘处
         if (self.isAutoEdgeRetract) {
-            [self performSelector:@selector(autoEdgeOffset) withObject:nil afterDelay:self.autoEdgeOffsetDuration];
+            [self beginAutoEdgeRetractTimer];
         }
     }];
 }
@@ -334,10 +425,7 @@ static const NSInteger minUpDownLimits = 60 * 1.5f;   // MISFloatingBallEdgePoli
     }
     else if (UIGestureRecognizerStateEnded == panGesture.state) {
         if (self.isAutoCloseEdge) {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2f * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                // 0.2s 之后靠边
-                [self autoCloseEdge];
-            });
+            [self autoCloseEdge];
         }
     }
 }
@@ -351,6 +439,22 @@ static const NSInteger minUpDownLimits = 60 * 1.5f;   // MISFloatingBallEdgePoli
     if ([_delegate respondsToSelector:@selector(didClickFloatingBall:)]) {
         [_delegate didClickFloatingBall:self];
     }
+}
+
+#pragma mark - Timer
+- (void)beginAutoEdgeRetractTimer {
+    _autoEdgeRetractTimer = [NSTimer timerWithTimeInterval:self.autoEdgeOffsetDuration target:self selector:@selector(autoEdgeRetractTimerFired) userInfo:nil repeats:NO];
+    [[NSRunLoop currentRunLoop] addTimer:_autoEdgeRetractTimer forMode:NSRunLoopCommonModes];
+}
+
+- (void)stopAutoEdgeRetractTimer {
+    [_autoEdgeRetractTimer invalidate];
+    _autoEdgeRetractTimer = nil;
+}
+
+- (void)autoEdgeRetractTimerFired {
+    [self stopAutoEdgeRetractTimer];
+    [self autoEdgeOffset];
 }
 
 #pragma mark - Setter / Getter
